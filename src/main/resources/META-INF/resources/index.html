@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A2A Gateway - Agent Visualizer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        @keyframes slideInFromTop {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(-45deg, #2a2d35, #3a3d45, #2d3139, #35383f);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            padding: 20px;
+            color: #c9cdd4;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            animation: slideInFromTop 0.6s ease-out;
+        }
+
+        .header {
+            background: rgba(42, 45, 53, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 
+                        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        h1 {
+            background: linear-gradient(135deg, #e5e7eb 0%, #9ca3af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            font-size: 3em;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+
+        .controls {
+            background: rgba(42, 45, 53, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5),
+                        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        button {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            color: #e5e7eb;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        }
+
+        button:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+            padding: 12px 20px;
+            background: rgba(75, 85, 99, 0.2);
+            border-radius: 12px;
+            font-weight: 600;
+            color: #9ca3af;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+        }
+
+        .graph-container {
+            background: rgba(42, 45, 53, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5),
+                        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            min-height: 650px;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        #graph {
+            width: 100%;
+            height: 650px;
+            border-radius: 16px;
+            background: rgba(35, 38, 45, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .agent-details {
+            background: rgba(42, 45, 53, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 28px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5),
+                        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            margin-top: 24px;
+            display: none;
+            animation: slideInFromTop 0.4s ease-out;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .agent-details.visible {
+            display: block;
+        }
+
+        .agent-details h2 {
+            background: linear-gradient(135deg, #e5e7eb 0%, #9ca3af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            font-size: 2em;
+            font-weight: 700;
+        }
+
+        .detail-section {
+            margin: 16px 0;
+            padding: 20px;
+            background: rgba(35, 38, 45, 0.5);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .detail-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .detail-label {
+            font-weight: 700;
+            color: #cbd5e1;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            color: #94a3b8;
+            line-height: 1.7;
+            font-size: 1em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: linear-gradient(135deg, #4b5563, #374151);
+            color: #d1d5db;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin: 4px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            transition: none;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+        }
+
+        .node:hover circle {
+            filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.6));
+        }
+
+        .link {
+            stroke: #6b7280;
+            stroke-opacity: 0.4;
+            stroke-width: 3px;
+            fill: none;
+            marker-end: url(#arrowhead);
+            transition: stroke-opacity 0.3s;
+        }
+
+        .link:hover {
+            stroke-opacity: 0.7;
+        }
+
+        .node-label {
+            font-size: 13px;
+            font-weight: 700;
+            fill: #d1d5db;
+            text-anchor: middle;
+            pointer-events: none;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        }
+
+        .legend {
+            position: absolute;
+            top: 32px;
+            right: 32px;
+            background: rgba(42, 45, 53, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5),
+                        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .legend-title {
+            font-weight: 700;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+            font-weight: 500;
+            color: #94a3b8;
+            font-size: 0.95em;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 A2A Gateway</h1>
+            <p class="subtitle">Real-time Agent Network Visualization</p>
+        </div>
+
+        <div class="controls">
+            <button onclick="refreshAgents()">🔄 Refresh</button>
+            <button onclick="toggleAutoRefresh()">
+                <span id="auto-refresh-text">▶️ Enable Auto-Refresh</span>
+            </button>
+            <div class="status">
+                <span id="agent-count">Loading...</span>
+                <div class="status-indicator"></div>
+            </div>
+        </div>
+
+        <div class="graph-container">
+            <div class="legend">
+                <div class="legend-title">Agent Types</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                    <span>Orchestrator</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #f59e0b, #ef4444);"></div>
+                    <span>Specialist</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #10b981, #059669);"></div>
+                    <span>Simple Agent</span>
+                </div>
+            </div>
+            <svg id="graph"></svg>
+        </div>
+
+        <div class="agent-details" id="agent-details">
+            <h2 id="detail-name">Agent Details</h2>
+            <div class="detail-section">
+                <div class="detail-label">Agent ID</div>
+                <div class="detail-value" id="detail-id"></div>
+            </div>
+            <div class="detail-section">
+                <div class="detail-label">System Prompt Preview</div>
+                <div class="detail-value" id="detail-prompt"></div>
+            </div>
+            <div class="detail-section">
+                <div class="detail-label">Enabled Tools</div>
+                <div class="detail-value" id="detail-tools"></div>
+            </div>
+            <div class="detail-section">
+                <div class="detail-label">Downstream Agents</div>
+                <div class="detail-value" id="detail-peers"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let agents = [];
+
+        function getAgentColor(agent) {
+            if (agent.downstreamPeers && agent.downstreamPeers.length > 0) {
+                return 'url(#orchestratorGradient)'; // Orchestrator - purple gradient
+            } else if (agent.enabledTools && agent.enabledTools.length > 0) {
+                return 'url(#specialistGradient)'; // Specialist with tools - orange gradient
+            } else {
+                return 'url(#simpleGradient)'; // Simple agent - green gradient
+            }
+        }
+
+        function visualizeAgents(agentData) {
+            agents = agentData;
+            
+            // Clear previous graph
+            d3.select('#graph').selectAll('*').remove();
+
+            const svg = d3.select('#graph');
+            const width = svg.node().getBoundingClientRect().width;
+            const height = svg.node().getBoundingClientRect().height;
+
+            // Create defs for gradients and markers
+            const defs = svg.append('defs');
+            
+            // Create gradients
+            const orchestratorGradient = defs.append('linearGradient')
+                .attr('id', 'orchestratorGradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '100%').attr('y2', '100%');
+            orchestratorGradient.append('stop').attr('offset', '0%').attr('style', 'stop-color:#6b7280;stop-opacity:1');
+            orchestratorGradient.append('stop').attr('offset', '100%').attr('style', 'stop-color:#4b5563;stop-opacity:1');
+            
+            const specialistGradient = defs.append('linearGradient')
+                .attr('id', 'specialistGradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '100%').attr('y2', '100%');
+            specialistGradient.append('stop').attr('offset', '0%').attr('style', 'stop-color:#78716c;stop-opacity:1');
+            specialistGradient.append('stop').attr('offset', '100%').attr('style', 'stop-color:#57534e;stop-opacity:1');
+            
+            const simpleGradient = defs.append('linearGradient')
+                .attr('id', 'simpleGradient')
+                .attr('x1', '0%').attr('y1', '0%')
+                .attr('x2', '100%').attr('y2', '100%');
+            simpleGradient.append('stop').attr('offset', '0%').attr('style', 'stop-color:#6b7280;stop-opacity:1');
+            simpleGradient.append('stop').attr('offset', '100%').attr('style', 'stop-color:#52525b;stop-opacity:1');
+
+            // Create arrow marker
+            defs.append('marker')
+                .attr('id', 'arrowhead')
+                .attr('viewBox', '-0 -5 10 10')
+                .attr('refX', 30)
+                .attr('refY', 0)
+                .attr('orient', 'auto')
+                .attr('markerWidth', 10)
+                .attr('markerHeight', 10)
+                .append('svg:path')
+                .attr('d', 'M 0,-5 L 10,0 L 0,5')
+                .attr('fill', '#6b7280');
+
+            // Build links from downstream relationships
+            const links = [];
+            agents.forEach(agent => {
+                if (agent.downstreamPeers) {
+                    agent.downstreamPeers.forEach(peerId => {
+                        links.push({
+                            source: agent.id,
+                            target: peerId
+                        });
+                    });
+                }
+            });
+
+            // Create force simulation
+            const simulation = d3.forceSimulation(agents)
+                .force('link', d3.forceLink(links).id(d => d.id).distance(200))
+                .force('charge', d3.forceManyBody().strength(-500))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(80));
+
+            // Create links
+            const link = svg.append('g')
+                .selectAll('path')
+                .data(links)
+                .join('path')
+                .attr('class', 'link');
+
+            // Create nodes
+            const node = svg.append('g')
+                .selectAll('g')
+                .data(agents)
+                .join('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('click', function(event, d) {
+                    event.stopPropagation();
+                    showAgentDetails(d);
+                });
+
+            // Add circles
+            node.append('circle')
+                .attr('r', 45)
+                .attr('fill', d => getAgentColor(d))
+                .attr('stroke', '#9ca3af')
+                .attr('stroke-width', 3);
+
+            // Add labels
+            node.append('text')
+                .attr('class', 'node-label')
+                .attr('dy', 5)
+                .text(d => d.name || d.id);
+
+            // Add peer count badge for orchestrators
+            node.filter(d => d.downstreamPeers && d.downstreamPeers.length > 0)
+                .append('circle')
+                .attr('r', 14)
+                .attr('cx', 34)
+                .attr('cy', -34)
+                .attr('fill', '#ef4444')
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 3);
+
+            node.filter(d => d.downstreamPeers && d.downstreamPeers.length > 0)
+                .append('text')
+                .attr('x', 34)
+                .attr('y', -29)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'white')
+                .attr('font-size', '11px')
+                .attr('font-weight', 'bold')
+                .attr('pointer-events', 'none')
+                .text(d => d.downstreamPeers.length);
+
+            simulation.on('tick', () => {
+                link.attr('d', d => {
+                    const dx = d.target.x - d.source.x;
+                    const dy = d.target.y - d.source.y;
+                    const dr = Math.sqrt(dx * dx + dy * dy);
+                    return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+                });
+
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+
+            // Let simulation settle then reduce alpha to prevent jitter
+            setTimeout(() => {
+                simulation.alphaTarget(0).alphaDecay(0.05);
+            }, 1000);
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.1).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                // Keep node fixed after dragging to prevent drift
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+        }
+
+        function showAgentDetails(agent) {
+            const details = document.getElementById('agent-details');
+            details.classList.add('visible');
+            
+            document.getElementById('detail-name').textContent = agent.name || 'Unnamed Agent';
+            document.getElementById('detail-id').textContent = agent.id;
+            document.getElementById('detail-prompt').textContent = agent.promptPreview || 'No prompt configured';
+            
+            const toolsDiv = document.getElementById('detail-tools');
+            if (agent.enabledTools && agent.enabledTools.length > 0) {
+                toolsDiv.innerHTML = agent.enabledTools.map(tool => 
+                    `<span class="badge">${tool}</span>`
+                ).join('');
+            } else {
+                toolsDiv.textContent = 'No tools enabled';
+            }
+            
+            const peersDiv = document.getElementById('detail-peers');
+            if (agent.downstreamPeers && agent.downstreamPeers.length > 0) {
+                peersDiv.innerHTML = agent.downstreamPeers.map(peer => 
+                    `<span class="badge">${peer}</span>`
+                ).join('');
+            } else {
+                peersDiv.textContent = 'No downstream agents';
+            }
+
+            // Scroll to details
+            details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function refreshAgents() {
+            try {
+                const response = await fetch('/api/agents');
+                const data = await response.json();
+                
+                document.getElementById('agent-count').textContent = 
+                    `${data.length} agent${data.length !== 1 ? 's' : ''} active`;
+                
+                visualizeAgents(data);
+            } catch (error) {
+                console.error('Error fetching agents:', error);
+                document.getElementById('agent-count').textContent = 'Error loading agents';
+            }
+        }
+
+        function toggleAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                document.getElementById('auto-refresh-text').textContent = '▶️ Enable Auto-Refresh';
+            } else {
+                autoRefreshInterval = setInterval(refreshAgents, 5000);
+                document.getElementById('auto-refresh-text').textContent = '⏸️ Disable Auto-Refresh';
+                refreshAgents();
+            }
+        }
+
+        // Initial load
+        refreshAgents();
+    </script>
+</body>
+</html>
