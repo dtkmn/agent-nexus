@@ -216,7 +216,7 @@ GET /agents/{agentId}
 docker run -d --name postgres \
   -e POSTGRES_USER=quarkus \
   -e POSTGRES_PASSWORD=quarkus \
-  -e POSTGRES_DB=a2a_gateway \
+  -e POSTGRES_DB=agent_nexus \
   -p 5432:5432 postgres:17
 
 # Run in dev mode with hot reload
@@ -316,7 +316,7 @@ This project is open source and available under the [MIT License](LICENSE).
 
 <div align="center">
 
-**Made with ❤️ by [Your Name]**
+**Made with ❤️ by Daniel Tse**
 
 ⭐ Star this repo if you find it useful!
 
