@@ -8,6 +8,12 @@ import org.acme.a2a.model.AgentConfig;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Persistence-backed registry service for agent definitions.
+ *
+ * It provisions new agents, hydrates runtime {@link AgentConfig} instances,
+ * and caches hydrated configs to reduce repeated database lookups.
+ */
 @ApplicationScoped
 public class AgentService {
 

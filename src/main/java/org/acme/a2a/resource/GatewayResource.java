@@ -13,6 +13,12 @@ import org.acme.a2a.entity.AgentEntity;
 import org.acme.a2a.model.AgentConfig;
 import org.acme.a2a.service.DynamicAgentService;
 
+/**
+ * Entry-point resource for agent lifecycle and per-agent request dispatch.
+ *
+ * It provisions agent definitions and routes `/agents/{agentId}` requests to a
+ * dedicated {@link VirtualAgentResource} instance.
+ */
 @Path("/agents")
 public class GatewayResource {
 

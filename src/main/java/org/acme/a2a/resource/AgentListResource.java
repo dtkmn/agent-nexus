@@ -10,6 +10,12 @@ import org.jboss.logging.Logger;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Provides a lightweight registry view of configured agents for the UI.
+ *
+ * The endpoint returns agent identity, prompt preview, enabled tools, and
+ * downstream relationships used to render orchestration topology.
+ */
 @Path("/api/agents")
 public class AgentListResource {
 
@@ -33,6 +39,9 @@ public class AgentListResource {
             .collect(Collectors.toList());
     }
 
+    /**
+     * DTO returned by {@link #listAgents()} for dashboard rendering.
+     */
     public static record AgentInfo(
         String id,
         String name,
