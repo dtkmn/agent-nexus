@@ -10,6 +10,12 @@ import org.hibernate.type.SqlTypes;
 import java.util.List;
 import java.util.ArrayList;
 
+/**
+ * Database entity representing a persisted virtual agent definition.
+ *
+ * JSON columns keep tool identifiers and downstream peer IDs used for runtime
+ * orchestration.
+ */
 @Entity
 @Table(name = "agents")
 public class AgentEntity extends PanacheEntityBase {

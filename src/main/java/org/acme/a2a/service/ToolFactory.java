@@ -1,13 +1,22 @@
 package org.acme.a2a.service;
 
+import dev.langchain4j.agent.tool.Tool;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.net.URI;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Factory for creating LangChain4j Tool definitions.
@@ -16,7 +25,8 @@ import java.util.Map;
 @ApplicationScoped
 public class ToolFactory {
 
-    private static final String GATEWAY_BASE_URL = "http://localhost:8080";
+    @ConfigProperty(name = "agent.gateway.base-url", defaultValue = "http://localhost:8080")
+    String gatewayBaseUrl;
 
     public List<Object> createToolsFor(List<String> toolNames, List<String> peers) {
         List<Object> tools = new ArrayList<>();
@@ -34,7 +44,7 @@ public class ToolFactory {
         if (peers != null) {
             // 2. Add A2A Tools (Dynamic delegation)
             for (String peerId : peers) {
-                tools.add(new PeerDelegationTool(peerId, GATEWAY_BASE_URL));
+                tools.add(new PeerDelegationTool(peerId, gatewayBaseUrl));
             }
         }
 
@@ -43,7 +53,7 @@ public class ToolFactory {
 
     // Standard weather tool example
     public static class WeatherTool {
-        @dev.langchain4j.agent.tool.Tool("Get the current weather for a location")
+        @Tool("Get the current weather for a location")
         public String getWeather(String location) {
             return "The weather in " + location + " is sunny and 25 degrees Celsius.";
         }
@@ -62,43 +72,60 @@ public class ToolFactory {
             this.gatewayBaseUrl = gatewayBaseUrl;
         }
 
-        @dev.langchain4j.agent.tool.Tool("Delegate a question or task to a specialized agent")
+        @Tool("Delegate a question or task to a specialized agent")
         public String callAgent(String question) {
+            return callAgent(question, 0);
+        }
+
+        public String callAgent(String question, int delegationDepth) {
             try {
                 LOG.info("Delegating to agent '" + peerId + "': " + question);
-                
+
                 // Build REST client
                 AgentClient client = RestClientBuilder.newBuilder()
                     .baseUri(URI.create(gatewayBaseUrl))
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
                     .build(AgentClient.class);
-                
+
                 // Call the peer agent
-                Map<String, String> request = Map.of("message", question);
+                Map<String, String> request = Map.of(
+                        "message", question == null ? "" : question,
+                        "_delegationDepth", String.valueOf(delegationDepth)
+                );
                 Map<String, String> response = client.sendMessage(peerId, request);
-                
-                String reply = response.get("reply");
+
+                String reply = response == null ? null : response.get("reply");
                 LOG.info("Agent '" + peerId + "' responded: " + reply);
-                
+
+                if (reply == null || reply.isBlank()) {
+                    return "Delegation to " + peerId + " returned an empty response.";
+                }
+
                 return reply;
             } catch (Exception e) {
                 LOG.error("Failed to call agent '" + peerId + "'", e);
                 return "Error: Unable to reach the " + peerId + " agent. " + e.getMessage();
             }
         }
+
+        public String getPeerId() {
+            return peerId;
+        }
     }
 
     /**
      * REST client interface for calling peer agents
      */
-    @jakarta.ws.rs.Path("/agents")
+    @Path("/agents")
     public interface AgentClient {
         
-        @jakarta.ws.rs.POST
-        @jakarta.ws.rs.Path("/{agentId}/message")
-        @jakarta.ws.rs.Consumes(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-        @jakarta.ws.rs.Produces(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+        @POST
+        @Path("/{agentId}/message")
+        @Consumes(MediaType.APPLICATION_JSON)
+        @Produces(MediaType.APPLICATION_JSON)
         Map<String, String> sendMessage(
-            @jakarta.ws.rs.PathParam("agentId") String agentId,
+            @PathParam("agentId") String agentId,
             Map<String, String> request
         );
     }
